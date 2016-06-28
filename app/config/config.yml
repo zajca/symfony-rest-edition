@@ -8,17 +8,41 @@ framework:
     secret:          %secret%
     router:
         resource: "%kernel.root_dir%/config/routing.yml"
-        strict_requirements: %kernel.debug%
+        strict_requirements: ~
     form:
         csrf_protection: false
     validation:      { enable_annotations: true }
     templating:
         engines: ['twig']
-        #assets_version: SomeVersionScheme
     default_locale:  "%locale%"
+    trusted_hosts:   ~
     trusted_proxies: ~
-    session:         false
+    session:
+        # handler_id set to null will use default session handler from php.ini
+        handler_id:  ~
+        save_path:   "%kernel.root_dir%/../var/sessions/%kernel.environment%"
     fragments:       ~
+    http_method_override: true
+    assets: ~
+
+nelmio_api_doc:
+  name: api
+  swagger:
+    api_base_path:        /api
+    swagger_version:      1
+    model_naming_strategy: 'last_segment_only'
+    api_version:          1
+    info:
+        title:                Api
+        description:          My awesome Symfony2 app!
+        TermsOfServiceUrl:    ~
+        contact:              ~
+        license:              ~
+        licenseUrl:           ~
+  sandbox:
+    authentication:
+        delivery: header
+        name:     X-API-TOKEN
 
 # Twig Configuration
 twig:
@@ -65,33 +89,58 @@ swiftmailer:
     password:  %mailer_password%
     spool:     { type: memory }
 
+
 fos_rest:
-    disable_csrf_role: ROLE_API
+    serializer:
+        serialize_null: true
+    versioning: true
+#    exception:
+#        codes:
+#            'Symfony\Component\Routing\Exception\ResourceNotFoundException': 404
+#            'Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException': 403
     param_fetcher_listener: true
+    body_listener: true
+#    service:
+#        exception_handler: pria.view.exception_wrapper_handler
+    format_listener:
+        enabled: true
+        rules:
+            - { path: '^/image', priorities: ['jpeg', 'gif'], fallback_format: false, prefer_extension: true }
+            # setting fallback_format to null means that in case of a priority mismatch the next rule will be considered
+            - { path: '^/admin', methods: [ 'GET', 'POST', 'PUT'], priorities: [ 'html'], fallback_format: ~, prefer_extension: false }
+            # setting fallback_format to null, while setting exception_fallback_format to xml, will mean that in case of an exception, xml will be used
+            - { path: '^/api', priorities: [ 'json'], fallback_format: ~, prefer_extension: false }
+            - { path: '^/v1', priorities: [ 'json'], fallback_format: ~, prefer_extension: false }
+            # setting a priority to */* basically means any format will be matched
+            - { path: '^/', priorities: [ 'text/html', '*/*'], fallback_format: html, prefer_extension: true }
     view:
-        mime_types:
-            json: ['application/json', 'application/json;version=1.0', 'application/json;version=1.1', 'application/json;version=1.2']
         view_response_listener: 'force'
+#        exception_wrapper_handler: pria.view.exception_wrapper_handler
         formats:
-            xml:  true
-            json: true
+            xml: false
+            json : true
         templating_formats:
             html: true
-    format_listener:
-        rules:
-            - { path: ^/, priorities: [ html, json, xml ], fallback_format: ~, prefer_extension: true }
-        media_type:
-            version_regex: '/(v|version)=(?P<version>[0-9\.]+)/'
+        force_redirects:
+            html: true
+        failed_validation: HTTP_BAD_REQUEST
+        default_engine: twig
+    routing_loader:
+        default_format: json
     exception:
+        enabled: true
+#        exception_controller: 'pria.exception.controller:showAction'
         codes:
-            'Symfony\Component\Routing\Exception\ResourceNotFoundException': 404
-            'Doctrine\ORM\OptimisticLockException': HTTP_CONFLICT
+            Symfony\Component\HttpKernel\Exception\BadRequestHttpException: 404
+            Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException: 403
+            Symfony\Component\HttpKernel\Exception\ConflictHttpException: 409
+            Symfony\Component\HttpKernel\Exception\NotFoundHttpException: 404
         messages:
-            'Symfony\Component\Routing\Exception\ResourceNotFoundException': true
-    allowed_methods_listener: true
-    access_denied_listener:
-        json: true
-    body_listener: true
+            Symfony\Component\HttpKernel\Exception\BadRequestHttpException: true
+            Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException: true
+            Symfony\Component\HttpKernel\Exception\ConflictHttpException: true
+            Symfony\Component\HttpKernel\Exception\HttpException: true
+            Symfony\Component\HttpKernel\Exception\NotFoundHttpException: true
 
 fos_http_cache:
     cache_control:
